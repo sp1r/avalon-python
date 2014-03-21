@@ -1,14 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Приложение для вскрытия md5 хэшей.
 
-Функциональные возможности:
-
-   1. Получение хэшей в кодировке base64.
-   2. Определение кол-ва процессоров на вычислительной системе и параллельный
-      запуск соответствующего кол-ва процессов перебора хэшей.
-   3. Определение процессорного времени, затраченного на подбор хэша.
-"""
 
 __author__ = 'sp1r'
 
@@ -26,23 +17,46 @@ input_file_name = "hashes.txt"  # one line - one base64 encoded hash
 max_guess_length = 5
 
 
-################################################################################
-# Help Functions
+class IvanTheRipper:
+    """
+    Приложение для вскрытия md5 хэшей.
 
-def brute_force(length):
-    for combination in itertools.product(string.printable, repeat=length):
-        yield ''.join(combination)
+    Функциональные возможности:
 
+       1. Получение хэшей в кодировке base64.
+       2. Определение кол-ва процессоров на вычислительной системе и параллельный
+          запуск соответствующего кол-ва процессов перебора хэшей.
+       3. Определение процессорного времени, затраченного на подбор хэша.
+    """
+    def __init__(self):
+        self.hashes = []
 
-def b64hash(pattern):
-    return base64.b64encode(hashlib.md5(pattern).digest())
+    ############################################################################
+    # Управление списком хэшей для взлома.
 
+    def add_b64hashes_from_file(self, filename):
+        """
+        Файл должен содержать хэши по одной штуке в строке.
+        Одна строка - один хэш в кодировке base64.
 
-class IvanTheReaper:
-    def __init__(self, length, hashes, output):
-        self.length = length
-        self.hashes_to_break = hashes
-        self.output = output
+        Если будут другие строки - программа конечно не сломается, но будет
+        пробовать подбирать их тоже. Оно вам надо?
+        """
+        with open(filename, 'r') as f:
+            hashes_from_file = [line.strip() for line in f]
+        self.hashes.extend(hashes_from_file)
+
+    def add_b64hash(self, hash_string):
+        """
+        Добавляет один хэш в список поиска.
+        """
+        self.hashes.append(hash_string)
+
+    def clear_hashes_list(self):
+        """
+        Удаляет все заргуженные ранее хэши.
+        """
+        self.hashes = []
 
     def __call__(self):
         while self.length <= int(os.environ['MAX']):
@@ -55,6 +69,18 @@ class IvanTheReaper:
             if probe_hash in self.hashes_to_break:
                 self.output.write("%s is for: \"%s\"\n" % (probe_hash, probe))
                 self.hashes_to_break.remove(probe_hash)
+
+
+################################################################################
+# Help Functions
+
+def brute_force(length):
+    for combination in itertools.product(string.printable, repeat=length):
+        yield ''.join(combination)
+
+
+def b64hash(pattern):
+    return base64.b64encode(hashlib.md5(pattern).digest())
 
 ################################################################################
 # Logic
