@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __author__ = 'spir'
 
 import time
@@ -9,14 +10,13 @@ start = time.time()
 secret = ivanlib.b64hash('toor')
 print 'Secret hash is:', secret
 
-# initiate ripper
+# Инициализируем и настраиваем класс-взломщик
 ivan = ivanlib.IvanTheRipper(max_length=3)
 
-# add some 'interesting' hash
+# добавляем интересующий нас хэш
 ivan.add_b64hash(secret)
 
-# run it
+# запускаем
 ivan()
 
-# get results
 print "Elapsed time:", time.time() - start

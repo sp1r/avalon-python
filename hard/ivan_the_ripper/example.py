@@ -1,20 +1,19 @@
+# -*- coding: utf-8 -*-
 __author__ = 'spir'
 
 import time
-import os
 
 import ivanlib
 
 start = time.time()
 
-# initiate ripper
+# Инициализируем и настраиваем класс-взломщик
 ivan = ivanlib.IvanTheRipper(max_length=4)
 
-# load hashes from file
+# загружаем список хэшей из файла
 ivan.add_b64hashes_from_file('hashes.txt')
 
-# run it
+# запускаем
 ivan()
 
-# get results
 print "Elapsed time:", time.time() - start
