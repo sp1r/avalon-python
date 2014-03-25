@@ -10,6 +10,8 @@ import base64
 import hashlib
 import itertools
 import time
+import multiprocessing as mp
+import ctypes
 
 
 class IvanTheRipper:
@@ -64,6 +66,10 @@ class IvanTheRipper:
         Наиболее трудоемкая часть работы - генерация хэшей.
         """
         print 'Start Ripping! Got', len(self.hashes), 'hashes to break.'
+        work_set = mp.Array(ctypes.c_char_p, len(self.hashes))
+        work_set = self.hashes
+
+        sys.exit()
         total_cores = get_processors_num()
         subprocs = []
         for core in range(total_cores):

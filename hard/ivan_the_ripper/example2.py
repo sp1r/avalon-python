@@ -2,15 +2,15 @@ __author__ = 'spir'
 
 import time
 
-import core
+import ivanlib
 
 start = time.time()
 
-secret = core.b64hash('toor')
+secret = ivanlib.b64hash('toor')
 print 'Secret hash is:', secret
 
 # initiate ripper
-ivan = core.IvanTheRipper(max_length=4)
+ivan = ivanlib.IvanTheRipper(max_length=4)
 
 # add some 'interesting' hash
 ivan.add_b64hash(secret)
