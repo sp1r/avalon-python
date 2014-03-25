@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__author__ = 'spir'
+__author__ = 'spirit'
 
 import time
 
