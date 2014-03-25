@@ -10,7 +10,7 @@ secret = ivanlib.b64hash('toor')
 print 'Secret hash is:', secret
 
 # initiate ripper
-ivan = ivanlib.IvanTheRipper(max_length=4)
+ivan = ivanlib.IvanTheRipper(max_length=3)
 
 # add some 'interesting' hash
 ivan.add_b64hash(secret)

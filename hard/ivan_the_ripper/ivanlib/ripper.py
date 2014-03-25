@@ -1,17 +1,20 @@
 # -*- coding: utf-8 -*-
-
-
+"""
+TODO:
+1. Попробовать сделать общий доступ из субпроцессов к списку хэшей в
+   родительском на чтение. В родительском же постепенно удалять из него
+   хэши, которые уже подобраны.
+"""
 __author__ = 'sp1r'
 
 import os
-import sys
 import string
 import base64
 import hashlib
 import itertools
 import time
 import multiprocessing as mp
-import ctypes
+import Queue
 
 
 class IvanTheRipper:
@@ -24,7 +27,7 @@ class IvanTheRipper:
           параллельный запуск соответствующего кол-ва процессов перебора хэшей.
        3. Определение процессорного времени, затраченного на подбор хэша.
     """
-    def __init__(self, max_length=3):
+    def __init__(self, max_length=12):
         self.max_length = max_length
         self.hashes = []
 
@@ -64,56 +67,80 @@ class IvanTheRipper:
     def __call__(self):
         """
         Наиболее трудоемкая часть работы - генерация хэшей.
+        Ее и будем распараллеливать.
         """
         print 'Start Ripping! Got', len(self.hashes), 'hashes to break.'
-        work_set = mp.Array(ctypes.c_char_p, len(self.hashes))
-        work_set = self.hashes
 
-        sys.exit()
+        results = mp.Queue()
+
         total_cores = get_processors_num()
         subprocs = []
+        active_children = 0
         for core in range(total_cores):
-            pid = os.fork()
-            if not pid:
-                w = Worker(self.max_length, core + 1, total_cores, self.hashes)
-                w()
-                sys.exit()
-            else:
-                subprocs.append(pid)
+            child_instance = Worker(core, total_cores, self.hashes, results)
+            child_process = mp.Process(target=child_instance,
+                                       args=(self.max_length, ))
+            child_process.start()
+            active_children += 1
+            subprocs.append(child_process)
 
-        for proc in subprocs:
-            os.waitpid(proc, 0)
+        # Возможно 2 штатных случая завершения работы:
+        # a) все подпроцессы завершились
+        # б) подобраны все хэши
+        while active_children and self.hashes:
+            try:
+                r = results.get(timeout=5)
+                print r
+                self.hashes.remove(r[0])
+            except Queue.Empty:
+                pass
+
+            for child in subprocs:
+                child.join(timeout=1)
+                if child.exitcode is not None:
+                    subprocs.remove(child)
+                    active_children -= 1
+
+        # Если еще есть живые подпроцессы - убить их
+        if active_children:
+            for child in subprocs:
+                child.terminate()
 
 
 class Worker:
-    def __init__(self, max_length, worker_number, total_workers, hashes):
+    def __init__(self, worker_number, total_workers, hashes, results_queue):
         """
         Каждый Worker будет перебирать только часть строк пропорциональную
         worker_number/total_worker.
+
+        Аргументы:
+           worker_number -- (int) порядковый номер процесса в рабочей группе,
+                            от 0 до N-1.
+           total_workers -- (int) суммарное количество процессов в группе (N).
+           hashes -- (list of str) список md5-хэшей в кодировке base64, которые
+                     будут подбираться.
         """
         self.first_char = \
-            len(string.printable)*(worker_number - 1)/total_workers
+            len(string.printable)*worker_number/total_workers
 
         if worker_number == total_workers:
             self.last_char = len(string.printable) - 1
         else:
             self.last_char = \
-                len(string.printable)*worker_number/total_workers
-        self.max = max_length
-        self.hashes_to_break = hashes
+                len(string.printable)*(worker_number + 1)/total_workers
 
-    def __call__(self):
-        for probe_length in range(self.max):
+        self.hashes_to_break = hashes
+        self.results = results_queue
+
+    def __call__(self, max_length):
+        for probe_length in range(max_length):
             self.rip(probe_length + 1)
 
     def rip(self, length):
         for probe in self.partial_brute_force(length):
             probe_hash = b64hash(probe)
             if probe_hash in self.hashes_to_break:
-                #self.output.write("%s is for: \"%s\"\n" % (probe_hash, probe))
-                print "%s is for: \"%s\" (cpu time: %f)\n" % (probe_hash,
-                                                              probe,
-                                                              time.clock())
+                self.results.put((probe_hash, probe, time.clock()))
                 self.hashes_to_break.remove(probe_hash)
 
     def partial_brute_force(self, length):
@@ -122,9 +149,8 @@ class Worker:
                 yield char
         else:
             for char in string.printable[self.first_char:self.last_char]:
-                for combination in itertools.product(string.printable,
-                                                     repeat=(length - 1)):
-                    yield char + ''.join(combination)
+                for combination in brute_force(length - 1):
+                    yield char + combination
 
 
 ################################################################################
