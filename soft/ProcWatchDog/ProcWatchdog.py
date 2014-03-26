@@ -29,7 +29,6 @@ class watchdog:
 	"""
 	def __init__(self, ini):	
 		self.ini = ini 
-		syslog.syslog('Starting WatchDog')
 		syslog.syslog('reading configuration...')	
 		config = ConfigParser.ConfigParser()
                 config.read(self.ini)
@@ -53,6 +52,7 @@ class watchdog:
 		Запуск процесса и наблюдение за его состоянием.
 		args: count - количество перезапусков процесса в случае нештатного завершения.
 		"""
+		syslog.syslog('Starting WatchDog: `%s`' % self.cmd)		
 		c = 0
 		while self.run() and c < count:
 			syslog.syslog(syslog.LOG_ERR, 'Service `%s` restarted.\nCrash reason:\n %s' % (self.cmd, self.stderr))
@@ -62,6 +62,5 @@ class watchdog:
 s = watchdog(sys.argv[1])
 s.watch(100)
 print s.stdout
-
 
 
