@@ -1,52 +1,67 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*- 
-# version 0.1
 # usage: ./ProcWatchdog.py <configfile>
 
-
-# Не судите строго, первая попытка.
-# Вопросы:
-# 1. Формат приведенный в задании - не ini формат, это было сделано специально дабы не использовать модули типа ConfigParser?
-# 2. Какие пользовательские комманды программа должна уметь исполнять?
-
-# Нерешенные проблемы:
-# 1. Бесконечная рекурсия при неверно данной команде.
-# 2. Вывод stdout дочернего процесса.
-# 3. Обработка разных исключений с пояснением в логе.
-
-
 import sys
-import os
 import ConfigParser 
-import datetime
 import syslog
+import subprocess
 
 
-def runcmd(ini):
-	syslog.syslog('reading configuration...')	
-	config = ConfigParser.ConfigParser()
-	config.read(ini)
+class watchdog:
+	"""
+	Класс watchdog.
 
-	os.chdir(config.get('process name', 'workdir'))
-	cmdline = config.get('process name', 'cmdline')
-	file = cmdline.split(' ')[0]
-	args = cmdline.split(' ')
-	childpid = os.fork()
-	if childpid:
-		result = os.waitpid(childpid, 0)	
-		if result[1] == 0:
-			syslog.syslog(syslog.LOG_NOTICE, 'normal exit (pid:%d, code:%d)' % result)
-		else:
-			syslog.syslog(syslog.LOG_ERR,'exit with error (pid:%d, code:%d)' % result)
-			runcmd(sys.argv[1])
+	Функциональные возможности:
+	1. Получение параметров из конфигурационного файла.
+	2. Установка текущего каталога и переменных окружения для запускаемых процессов.
+	3. Запись в системный журнал уведомления о нештатном завершении процесса с указанием причины.
+	
+	args: ini - файл конфигурации определенного формата:
+		[process name]
+		command_line = string
+		working_dir = string
+
+		[environment]
+		var = value
+		var = value
+		...
+	"""
+	def __init__(self, ini):	
+		self.ini = ini 
+		syslog.syslog('Starting WatchDog')
+		syslog.syslog('reading configuration...')	
+		config = ConfigParser.ConfigParser()
+                config.read(self.ini)
+		self.cmd = config.get('process name', 'cmdline')
+		self.cwd = config.get('process name', 'workdir')
+		self.envs = {}
+		for el in config.items('environment'):
+                	self.envs[el[0]]=el[1]
+
+			
+	def run(self):
+		"""
+		Запуск процесса с пользовательской коммандой.
+		"""	
+		pop = subprocess.Popen(self.cmd, shell=True, cwd=self.cwd, env=self.envs, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+		self.stdout, self.stderr = pop.communicate()	
+		return 1 if pop.wait() else 0
 		
-	else:
-		syslog.syslog(syslog.LOG_NOTICE, 'starting: `%s` with PID %d...' % (cmdline, os.getpid()))
-		os.environ = {'var1': config.get('environment', 'var1'), 'var2': config.get('environment', 'var2')}
-		os.execvpe(file, args, os.environ)
-syslog.syslog('Starting WatchDog')
+	def watch(self, count):
+		"""
+		Запуск процесса и наблюдение за его состоянием.
+		args: count - количество перезапусков процесса в случае нештатного завершения.
+		"""
+		c = 0
+		while self.run() and c < count:
+			syslog.syslog(syslog.LOG_ERR, 'Service `%s` restarted.\nCrash reason:\n %s' % (self.cmd, self.stderr))
+			c+=1	 	
+		syslog.syslog('Stopping WatchDog')	
+	
+s = watchdog(sys.argv[1])
+s.watch(100)
+print s.stdout
 
-try:
-	runcmd(sys.argv[1])
-except: 
-	syslog.syslog(syslog.LOG_CRIT, 'ProcWatchdog crashed')
+
+
