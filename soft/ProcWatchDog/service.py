@@ -7,5 +7,5 @@ import time, os, sys
 while 1:
 	print os.environ
 	print sys.argv
-	time.sleep(10)
+	time.sleep(30)
 	dasdas
