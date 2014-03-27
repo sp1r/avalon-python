@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# TODO: реализация таймера на выполнение команды.
+
+
+
 
 """
 Сетевой сервис, выполняющий команды оболочки, переданные по сети клиентами, и возвращающий клиентам стандартный вывод и поток ошибок выполненных команд. В качестве транспорта должен использоваться протокол TCP. Признаком завершения команды является символ новой строки.
@@ -18,19 +22,23 @@ working_dir = string
 import subprocess
 import asyncore
 import socket
-
-
+import signal
+import ConfigParser
 
 
 class Handler(asyncore.dispatcher_with_send):
 
 	def handle_read(self):
 		data = self.recv(8192)
+		if data == 'q\r\n': # Выход из сессии.
+			self.close()
 		if data:
-			pop = subprocess.Popen(data.strip(), shell=True, cwd='/home/axeo/', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			pop = subprocess.Popen(data.strip(), shell=True, cwd=config.get('config', 'working_dir'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			stdin, stderr = pop.communicate()			
 			self.send(stdin + stderr)
-	
+			
+			print 'sended'
+		
 class Server(asyncore.dispatcher):
 
 	def __init__(self, host, port):
@@ -49,5 +57,8 @@ class Server(asyncore.dispatcher):
 			print 'Incoming connection from %s' % repr(addr)
 			handler = Handler(sock)
 
-server = Server('localhost', 8080)
+config = ConfigParser.ConfigParser()
+config.read('config.ini')
+server = Server(config.get('config','address'), int(config.get('config','port')))
 asyncore.loop()
+
