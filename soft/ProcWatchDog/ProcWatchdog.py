@@ -56,7 +56,6 @@ class watchdog:
 		"""
 		syslog.syslog('Starting WatchDog: `%s`' % self.cmd)		
 		c = 0
-
 		self.code = 1
 		while self.code and c < count:
 			self.run()
