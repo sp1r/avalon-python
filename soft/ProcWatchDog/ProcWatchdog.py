@@ -6,6 +6,7 @@ import sys
 import ConfigParser 
 import syslog
 import subprocess
+import os 
 
 
 class watchdog:
@@ -42,10 +43,11 @@ class watchdog:
 	def run(self):
 		"""
 		Запуск процесса с пользовательской коммандой.
-		"""	
-		pop = subprocess.Popen(self.cmd, shell=True, cwd=self.cwd, env=self.envs, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-		self.stdout, self.stderr = pop.communicate()	
-		return 1 if pop.wait() else 0
+		"""
+		pop = subprocess.Popen(self.cmd, shell=True, cwd=self.cwd, env=self.envs)
+		self.pid = pop.pid
+		self.code = os.wait()[1]
+		return self.code if self.code else 0
 		
 	def watch(self, count):
 		"""
@@ -54,13 +56,27 @@ class watchdog:
 		"""
 		syslog.syslog('Starting WatchDog: `%s`' % self.cmd)		
 		c = 0
-		while self.run() and c < count:
-			syslog.syslog(syslog.LOG_ERR, 'Service `%s` restarted.\nCrash reason:\n %s' % (self.cmd, self.stderr))
-			c+=1	 	
+
+		self.code = 1
+		while self.code and c < count:
+			self.run()
+			
+			if not self.code:
+				syslog.syslog('Process exit normally')
+				break
+			elif os.WIFSIGNALED(self.code):
+				self.result = 'terminated with signal %d' % os.WTERMSIG(self.code)
+			elif os.WIFSTOPPED(self.code):
+				self.result = 'stopped with signal %d' % os.WSTOPSIG(self.code)
+			else:
+				self.result = 'magic error'
+			
+			syslog.syslog(syslog.LOG_ERR, 'Service `%s` restarted.\nCrash reason: %s\n' % (self.cmd, self.result)) 
+			c+=1	 
+			
 		syslog.syslog('Stopping WatchDog')	
 	
 s = watchdog(sys.argv[1])
 s.watch(100)
-print s.stdout
 
 
