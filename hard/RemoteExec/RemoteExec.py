@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# TODO: реализация таймера на выполнение команды.
 
 """
 Сетевой сервис, выполняющий команды оболочки, переданные по сети клиентами, и возвращающий клиентам стандартный вывод и поток ошибок выполненных команд. В качестве транспорта должен использоваться протокол TCP. Признаком завершения команды является символ новой строки.
@@ -22,6 +21,12 @@ import socket
 import signal
 import ConfigParser
 
+def alarm_handler(signum, frame):
+    raise Alarm
+
+
+class Alarm(Exception):
+    pass
 
 class Handler(asyncore.dispatcher_with_send):
 
@@ -30,9 +35,16 @@ class Handler(asyncore.dispatcher_with_send):
 		if data == 'q\r\n': # Выход из сессии.
 			self.close()
 		if data:
-			pop = subprocess.Popen(data.strip(), shell=True, cwd=config.get('config', 'working_dir'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			stdin, stderr = pop.communicate()			
-			self.send(stdin + stderr)
+			signal.signal(signal.SIGALRM, alarm_handler)
+			signal.alarm(int(config.get('config', 'timeout')))
+			try:
+				pop = subprocess.Popen(data.strip(), shell=True, cwd=config.get('config', 'working_dir'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				stdin, stderr = pop.communicate()
+				signal.alarm(0)
+				self.send(stdin + stderr)
+			except Alarm:
+				self.send('command takes more than %s second(s)\n' % config.get('config', 'timeout'))
+					
 			
 class Server(asyncore.dispatcher):
 
