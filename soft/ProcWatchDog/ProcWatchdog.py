@@ -60,7 +60,7 @@ class watchdog:
 		while self.code and c < count:
 			self.run()
 			
-			if not self.code:
+			if os.WIFEXITED(self.code) and os.WEXITSTATUS(self.code):
 				syslog.syslog('Process exit normally')
 				break
 			elif os.WIFSIGNALED(self.code):
