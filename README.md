@@ -10,3 +10,7 @@ avalon-4semester
 Качественное исполнение любого задания из этого блока = оценка 5.
 
 Пакет 'hell' -- Придуманные студентами задания. Оценка 6.
+
+
+Give people a tool, and they’ll code for a day; teach them how to build tools,
+and they’ll code for a lifetime. (c) Mark Lutz.
